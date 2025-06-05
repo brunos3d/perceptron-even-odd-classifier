@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Perceptron Even/Odd Classifier</title>
+    <meta
+      name="description"
+      content="Interactive visualization of a perceptron neural network that classifies numbers as even or odd using JavaScript and D3.js."
+    />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #111;
+        color: #eee;
+        text-align: center;
+      }
+      svg {
+        border: 1px solid #444;
+        margin-top: 20px;
+      }
+      .node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+        fill: #555;
+      }
+      .link {
+        stroke: #999;
+        stroke-width: 2px;
+      }
+      button,
+      input {
+        margin: 10px;
+        padding: 10px;
+        font-size: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Perceptron: Even or Odd</h1>
+    <div>
+      <input type="number" id="testInput" placeholder="Enter a number" />
+      <button onclick="testNumber()">Test Number</button>
+      <p id="prediction"></p>
+    </div>
+
+    <div>
+      <input
+        type="number"
+        id="minAccuracy"
+        placeholder="Min accuracy %"
+        value="90"
+      />
+      <button onclick="startTraining()">Train Perceptron</button>
+      <button onclick="stopTraining()">Stop Training</button>
+      <p>Epochs: <span id="epochCount">0</span></p>
+      <p>Accuracy: <span id="accuracy">0%</span></p>
+    </div>
+
+    <svg id="network" width="600" height="300"></svg>
+
+    <script>
+      const perceptron = {
+        weight: Math.random() * 2 - 1,
+        bias: Math.random() * 2 - 1,
+        learningRate: 0.01,
+        epochs: 0,
+
+        activate(x) {
+          return x >= 0.5 ? 1 : 0;
+        },
+
+        predict(input) {
+          const scaledInput = input % 2;
+          const sum = scaledInput * this.weight + this.bias;
+          return this.activate(sum);
+        },
+
+        train(inputs, labels) {
+          for (let i = 0; i < inputs.length; i++) {
+            const x = inputs[i] % 2;
+            const y = labels[i];
+            const prediction = this.predict(inputs[i]);
+            const error = y - prediction;
+            this.weight += this.learningRate * error * x;
+            this.bias += this.learningRate * error;
+          }
+          this.epochs++;
+        },
+      };
+
+      const inputs = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const labels = inputs.map((n) => n % 2);
+
+      let trainingInterval = null;
+
+      function testNumber() {
+        const val = parseInt(document.getElementById("testInput").value);
+        const result = perceptron.predict(val);
+        document.getElementById(
+          "prediction"
+        ).innerText = `The number ${val} is ${result === 1 ? "Odd" : "Even"}`;
+        updateGraph();
+      }
+
+      function updateAccuracyAndGraph() {
+        document.getElementById("epochCount").innerText = perceptron.epochs;
+        const predictions = inputs.map((n) => perceptron.predict(n));
+        const correct = predictions.filter(
+          (pred, i) => pred === labels[i]
+        ).length;
+        const accuracy = ((correct / inputs.length) * 100).toFixed(1);
+        document.getElementById("accuracy").innerText = `${accuracy}%`;
+        updateGraph();
+        return parseFloat(accuracy);
+      }
+
+      function startTraining() {
+        const targetAccuracy = parseFloat(
+          document.getElementById("minAccuracy").value
+        );
+        if (trainingInterval) clearInterval(trainingInterval);
+        trainingInterval = setInterval(() => {
+          perceptron.train(inputs, labels);
+          const accuracy = updateAccuracyAndGraph();
+          if (accuracy >= targetAccuracy) stopTraining();
+        }, 30);
+      }
+
+      function stopTraining() {
+        if (trainingInterval) {
+          clearInterval(trainingInterval);
+          trainingInterval = null;
+        }
+      }
+
+      function updateGraph() {
+        const svg = d3.select("#network");
+        svg.selectAll("*").remove();
+
+        const nodes = [
+          { id: "Input", x: 100, y: 150 },
+          { id: "Neuron", x: 300, y: 150 },
+          { id: "Output", x: 500, y: 150 },
+        ];
+
+        const links = [
+          { source: "Input", target: "Neuron" },
+          { source: "Neuron", target: "Output" },
+        ];
+
+        svg
+          .selectAll(".link")
+          .data(links)
+          .enter()
+          .append("line")
+          .attr("class", "link")
+          .attr("x1", (d) => nodes.find((n) => n.id === d.source).x)
+          .attr("y1", (d) => nodes.find((n) => n.id === d.source).y)
+          .attr("x2", (d) => nodes.find((n) => n.id === d.target).x)
+          .attr("y2", (d) => nodes.find((n) => n.id === d.target).y);
+
+        svg
+          .selectAll(".node")
+          .data(nodes)
+          .enter()
+          .append("circle")
+          .attr("class", "node")
+          .attr("r", 30)
+          .attr("cx", (d) => d.x)
+          .attr("cy", (d) => d.y);
+
+        svg
+          .selectAll(".label")
+          .data(nodes)
+          .enter()
+          .append("text")
+          .attr("x", (d) => d.x)
+          .attr("y", (d) => d.y + 50)
+          .attr("text-anchor", "middle")
+          .style("fill", "#fff")
+          .text((d) => d.id);
+
+        svg
+          .append("text")
+          .attr("x", 300)
+          .attr("y", 20)
+          .attr("text-anchor", "middle")
+          .style("fill", "#0f0")
+          .text(
+            `w: ${perceptron.weight.toFixed(2)} | b: ${perceptron.bias.toFixed(
+              2
+            )}`
+          );
+      }
+
+      updateGraph();
+    </script>
+  </body>
+</html>
